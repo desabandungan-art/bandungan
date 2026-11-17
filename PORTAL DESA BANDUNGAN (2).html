@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pemerintah Desa Bandungan - Kec. Saradan, Kab. Madiun</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌾%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+(()=>{const S=['50','100','200','300','400','500','600','700','800','900','950'],m=p=>Object.fromEntries(S.map(s=>[s,`rgb(var(--${p}${s}) / <alpha-value>)`]));tailwind.config={theme:{extend:{colors:{emerald:m('e'),amber:m('a')}}}}})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.263.1/dist/umd/lucide.min.js"></script>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import {getAnalytics} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
+import {getDatabase,ref,onValue,set,push,update,remove,get,runTransaction,query,orderByChild,equalTo} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+import {getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updatePassword,reauthenticateWithCredential,EmailAuthProvider} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+/* =====================================================================
+   KONFIGURASI FIREBASE  —  PEMERINTAH DESA BANDUNGAN
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCj0AF7jCC367BF81IN1GLFbFlw5tj8tyg",
+  authDomain: "desa-bandungan.firebaseapp.com",
+  databaseURL: "https://desa-bandungan-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "desa-bandungan",
+  storageBucket: "desa-bandungan.firebasestorage.app",
+  messagingSenderId: "832299858096",
+  appId: "1:832299858096:web:be76ecf463f5cefeed6375",
+  measurementId: "G-ER744PH43J"
+};
+const DB_ROOT = "desa_bandungan";   // nama node induk di database (harus sama dengan di database.rules.json)
+
+/* ---- Inisialisasi (jangan diubah) ---- */
+let api = null, sec = null;
+try {
+  const ok = ['apiKey','databaseURL','projectId'].every(k => firebaseConfig[k] && !/ISI_/.test(firebaseConfig[k]));
+  if (ok) {
+    const app = initializeApp(firebaseConfig), d = getDatabase(app), auth = getAuth(app);
+    try { getAnalytics(app); } catch (ae) {}
+    api = {
+      watch: (p, cb, er) => onValue(ref(d, p), s => cb(s.val()), er),   // listener real-time, mengembalikan fungsi unsubscribe
+      get: async p => (await get(ref(d, p))).val(),
+      set: (p, v) => set(ref(d, p), v),
+      update: (p, v) => update(ref(d, p), v),
+      push: async (p, v) => { const r = push(ref(d, p)); await set(r, v); return r.key; },
+      remove: p => remove(ref(d, p)),
+      counter: async p => (await runTransaction(ref(d, p), n => (n || 0) + 1)).snapshot.val(),
+      /* Authentication (Email/Password; username diubah menjadi username@bandungan.desa) */
+      login: async (e, p) => (await signInWithEmailAndPassword(auth, e, p)).user.uid,
+      signup: async (e, p) => (await createUserWithEmailAndPassword(auth, e, p)).user.uid,
+      createUser: async (e, p) => {            // buat akun operator tanpa mengeluarkan admin (pakai app sekunder)
+        sec = sec || initializeApp(firebaseConfig, 'secondary'); const a2 = getAuth(sec);
+        try { return (await createUserWithEmailAndPassword(a2, e, p)).user.uid; } finally { await signOut(a2); }
+      },
+      logout: () => signOut(auth),
+      onAuth: cb => onAuthStateChanged(auth, u => cb(u ? u.uid : null)),
+      changePass: async (e, o, n) => { const u = auth.currentUser; await reauthenticateWithCredential(u, EmailAuthProvider.credential(e, o)); await updatePassword(u, n); }
+    };
+  }
+} catch (e) { console.error('Inisialisasi Firebase gagal:', e); }
+window.FB = api; window.FB_ROOT = DB_ROOT;
+window.dispatchEvent(new Event('fb-ready'));
+</script>
+
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-behavior:smooth;scroll-padding-top:6rem}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--pagebg,#fff);color:#1f2937}
+.inp{width:100%;border:1px solid #d1d5db;border-radius:.5rem;padding:.55rem .75rem;font-size:.9rem;background:#fff}
+.inp:focus{outline:2px solid #10b981;border-color:#10b981}
+.btn{display:inline-flex;align-items:center;gap:.4rem;border-radius:.5rem;padding:.5rem 1rem;font-weight:600;font-size:.9rem;cursor:pointer;transition:.15s}
+.bg-pattern{background-image:radial-gradient(rgba(255,255,255,.12) 1px,transparent 1px);background-size:22px 22px}
+</style>
+</head>
+<body>
+<div id="fbBanner" class="hidden bg-amber-100 text-amber-900 text-xs text-center px-4 py-2 border-b border-amber-300">⚠️ <b>MODE DEMO</b> — Firebase belum dikonfigurasi. Isi <code>firebaseConfig</code> di bagian atas file <code>index.html</code>. Data demo hanya tersimpan sementara dan hilang saat halaman dimuat ulang.</div>
+
+<!-- HEADER -->
+<header class="sticky z-40 bg-white shadow" style="top:env(safe-area-inset-top,0px)">
+  <div id="cfgTop" class="bg-emerald-900 text-emerald-100 text-xs py-1 px-4 text-center">Portal Resmi Pemerintah Desa Bandungan • Kabupaten Madiun, Jawa Timur</div>
+  <div class="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
+    <a href="#beranda" onclick="goPublic()" class="flex items-center gap-3 min-w-0">
+      <span id="logoHead" class="shrink-0"></span>
+      <span class="leading-tight min-w-0"><b id="cfgNama" class="block text-emerald-800 text-sm sm:text-base">PEMERINTAH DESA BANDUNGAN</b><span id="cfgSub" class="text-xs text-gray-500">Kec. Saradan, Kab. Madiun</span></span>
+    </a>
+    <nav class="hidden lg:flex items-center gap-1 text-sm font-medium">
+      <a class="px-3 py-2 rounded hover:bg-emerald-50 hover:text-emerald-700" onclick="goPublic()" href="#beranda">Beranda</a>
+      <a class="px-3 py-2 rounded hover:bg-emerald-50 hover:text-emerald-700" onclick="goPublic()" href="#profil">Profil Desa</a>
+      <a class="px-3 py-2 rounded hover:bg-emerald-50 hover:text-emerald-700" onclick="goPublic()" href="#layanan">Layanan Mandiri</a>
+      <a class="px-3 py-2 rounded hover:bg-emerald-50 hover:text-emerald-700" onclick="goPublic()" href="#pemerintahan">Pemerintahan</a>
+      <a class="px-3 py-2 rounded hover:bg-emerald-50 hover:text-emerald-700" onclick="goPublic()" href="#berita">Berita &amp; Agenda</a>
+      <a class="px-3 py-2 rounded hover:bg-emerald-50 hover:text-emerald-700" onclick="goPublic()" href="#apbdes">Transparansi APBDes</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <button id="loginBtn" onclick="loginClick()" class="btn bg-amber-400 hover:bg-amber-500 text-emerald-950"><i data-lucide="log-in" class="w-4 h-4"></i><span id="loginTxt">Login Admin</span></button>
+      <button onclick="document.getElementById('mnav').classList.toggle('hidden')" class="lg:hidden p-2 rounded border"><i data-lucide="menu" class="w-5 h-5"></i></button>
+    </div>
+  </div>
+  <nav id="mnav" class="hidden lg:hidden border-t bg-white text-sm font-medium grid grid-cols-2" onclick="this.classList.add('hidden')">
+    <a class="p-3 hover:bg-emerald-50" onclick="goPublic()" href="#beranda">Beranda</a><a class="p-3 hover:bg-emerald-50" onclick="goPublic()" href="#profil">Profil Desa</a>
+    <a class="p-3 hover:bg-emerald-50" onclick="goPublic()" href="#layanan">Layanan Mandiri</a><a class="p-3 hover:bg-emerald-50" onclick="goPublic()" href="#pemerintahan">Pemerintahan</a>
+    <a class="p-3 hover:bg-emerald-50" onclick="goPublic()" href="#berita">Berita &amp; Agenda</a><a class="p-3 hover:bg-emerald-50" onclick="goPublic()" href="#apbdes">Transparansi APBDes</a>
+  </nav>
+</header>
+
+<!-- PUBLIK -->
+<main id="publicView">
+  <section id="beranda" class="relative bg-gradient-to-br from-emerald-800 via-emerald-700 to-emerald-900 text-white bg-pattern">
+    <div class="max-w-7xl mx-auto px-4 py-16 md:py-24 grid md:grid-cols-2 gap-10 items-center">
+      <div>
+        <span class="inline-flex items-center gap-2 bg-amber-400 text-emerald-950 text-xs font-bold px-3 py-1 rounded-full mb-4"><i data-lucide="badge-check" class="w-4 h-4"></i><span id="cfgBadge">Portal Resmi Desa</span></span>
+        <h1 id="cfgH1" class="text-3xl md:text-5xl font-extrabold leading-tight">Selamat Datang di Portal Resmi <span class="text-amber-300">Desa Bandungan</span></h1>
+        <p id="cfgDesc" class="mt-4 text-emerald-50 md:text-lg">Desa agraris di Kecamatan Saradan, Kabupaten Madiun dengan hamparan sawah, ladang, dan kawasan hutan jati di sekitarnya. Potensi unggulan: pertanian padi &amp; jagung, peternakan sapi, UMKM olahan pangan, serta kearifan gotong royong warga.</p>
+        <div class="mt-7 flex flex-wrap gap-3">
+          <a href="#layanan" class="btn bg-amber-400 hover:bg-amber-500 text-emerald-950"><i data-lucide="file-text" class="w-4 h-4"></i>Layanan Surat</a>
+          <a href="#berita" class="btn border border-white/60 hover:bg-white/10"><i data-lucide="newspaper" class="w-4 h-4"></i>Berita Desa</a>
+        </div>
+      </div>
+      <div class="hidden md:flex justify-center"><div class="bg-white/10 backdrop-blur rounded-3xl p-10 border border-white/20 text-center"><div id="logoHero" class="flex justify-center"></div><p id="cfgKab" class="mt-4 font-bold tracking-wide">KABUPATEN MADIUN</p><p id="cfgKabSub" class="text-amber-300 text-sm">Desa Bandungan • Kec. Saradan</p></div></div>
+    </div>
+  </section>
+
+  <section id="statistik" class="max-w-7xl mx-auto px-4 -mt-10 relative z-10"><div id="statGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"></div></section>
+
+  <section id="profil" class="max-w-7xl mx-auto px-4 py-16">
+    <div class="text-center mb-10"><h2 class="text-2xl md:text-3xl font-bold text-emerald-800">Profil Desa</h2><div class="w-20 h-1 bg-amber-400 mx-auto mt-2 rounded"></div><p id="cfgProfilIntro" class="text-gray-600 mt-3 max-w-2xl mx-auto"></p></div>
+    <div class="grid lg:grid-cols-5 gap-6">
+      <div class="lg:col-span-3 rounded-2xl border border-emerald-100 bg-white shadow p-6"><h3 class="font-bold text-lg text-emerald-800 flex items-center gap-2"><i data-lucide="landmark" class="w-5 h-5 text-amber-500"></i>Sejarah Desa</h3><div id="cfgSejarah" class="mt-3 text-gray-700 leading-relaxed space-y-3"></div></div>
+      <div class="lg:col-span-2 rounded-2xl bg-emerald-800 text-white shadow p-6"><h3 class="font-bold text-lg text-amber-300 flex items-center gap-2"><i data-lucide="map" class="w-5 h-5"></i>Data Umum &amp; Batas Wilayah</h3><dl id="cfgData" class="mt-3 text-sm divide-y divide-white/15"></dl></div>
+    </div>
+    <div class="grid md:grid-cols-2 gap-6 mt-6">
+      <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-6"><h3 class="font-bold text-lg text-emerald-800 flex items-center gap-2"><i data-lucide="eye" class="w-5 h-5 text-amber-500"></i>Visi</h3><p id="cfgVisi" class="mt-3 text-gray-700"></p></div>
+      <div class="rounded-2xl border border-amber-100 bg-amber-50 p-6"><h3 class="font-bold text-lg text-emerald-800 flex items-center gap-2"><i data-lucide="target" class="w-5 h-5 text-amber-500"></i>Misi</h3><ol id="cfgMisi" class="mt-3 text-gray-700 list-decimal pl-5 space-y-1 text-sm"></ol></div>
+    </div>
+    <div class="mt-12"><h3 class="text-xl md:text-2xl font-bold text-emerald-800 text-center">Potensi Desa</h3><div class="w-14 h-1 bg-amber-400 mx-auto mt-2 mb-6 rounded"></div><div id="cfgPotensi" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div></div>
+  </section>
+
+  <section id="layanan" class="bg-emerald-50 py-16"><div class="max-w-7xl mx-auto px-4">
+    <div class="text-center mb-10"><h2 class="text-2xl md:text-3xl font-bold text-emerald-800">Layanan Mandiri Administrasi Surat</h2><div class="w-20 h-1 bg-amber-400 mx-auto mt-2 rounded"></div><p class="text-gray-600 mt-3">Ajukan permohonan surat secara online. Petugas desa akan menghubungi Anda melalui WhatsApp.</p></div>
+    <div class="grid md:grid-cols-5 gap-8 items-start">
+      <div class="md:col-span-2 space-y-3 text-sm">
+        <div class="flex gap-3 p-4 rounded-xl bg-white shadow-sm"><i data-lucide="edit-3" class="w-5 h-5 text-emerald-700 shrink-0"></i><span><b>1. Isi formulir</b><br>Lengkapi NIK, nama, jenis surat, dan nomor WhatsApp.</span></div>
+        <div class="flex gap-3 p-4 rounded-xl bg-white shadow-sm"><i data-lucide="loader" class="w-5 h-5 text-emerald-700 shrink-0"></i><span><b>2. Diproses petugas</b><br>Permohonan masuk antrean Panel Admin.</span></div>
+        <div class="flex gap-3 p-4 rounded-xl bg-white shadow-sm"><i data-lucide="check-circle" class="w-5 h-5 text-emerald-700 shrink-0"></i><span><b>3. Ambil surat</b><br>Datang ke Kantor Desa setelah dikonfirmasi selesai.</span></div>
+      </div>
+      <form onsubmit="return submitLetter(event)" class="md:col-span-3 bg-white border border-emerald-100 shadow-lg rounded-2xl p-6 space-y-4">
+        <div><label class="text-sm font-semibold">NIK (16 digit)</label><input id="l_nik" class="inp mt-1" required inputmode="numeric" maxlength="16" pattern="\d{16}" placeholder="3519xxxxxxxxxxxx"></div>
+        <div><label class="text-sm font-semibold">Nama Lengkap</label><input id="l_nama" class="inp mt-1" required placeholder="Sesuai KTP"></div>
+        <div class="grid grid-cols-2 gap-3"><div><label class="text-sm font-semibold">Tempat Lahir</label><input id="l_tempat" class="inp mt-1" required placeholder="Contoh: Madiun"></div><div><label class="text-sm font-semibold">Tanggal Lahir</label><input id="l_tl" type="date" class="inp mt-1" required></div></div>
+        <div><label class="text-sm font-semibold">Alamat Lengkap</label><textarea id="l_alamat" rows="2" class="inp mt-1" required placeholder="Dusun, RT/RW, Desa Bandungan"></textarea></div>
+        <div><label class="text-sm font-semibold">Jenis Surat</label><select id="l_jenis" onchange="jenisChange()" class="inp mt-1"></select></div>
+        <div id="modinBox" class="hidden p-3 rounded-lg bg-amber-50 border border-amber-300 text-sm text-gray-800"></div>
+        <div><label class="text-sm font-semibold">Keperluan (opsional)</label><input id="l_perlu" class="inp mt-1" placeholder="Contoh: persyaratan melamar kerja"></div>
+        <div><label class="text-sm font-semibold">Nomor WhatsApp</label><input id="l_wa" class="inp mt-1" required inputmode="tel" pattern="[0-9+]{9,15}" placeholder="08xxxxxxxxxx"></div>
+        <button id="l_btn" class="btn bg-emerald-700 hover:bg-emerald-800 text-white w-full justify-center"><i data-lucide="send" class="w-4 h-4"></i>Kirim Permohonan</button>
+      </form>
+    </div>
+  </div></section>
+
+  <section id="pemerintahan" class="py-16"><div class="max-w-7xl mx-auto px-4">
+    <div class="text-center mb-10"><h2 class="text-2xl md:text-3xl font-bold text-emerald-800">Struktur Pemerintahan Desa</h2><div class="w-20 h-1 bg-amber-400 mx-auto mt-2 rounded"></div></div>
+    <div id="offGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
+  </div></section>
+
+  <section id="berita" class="bg-gray-50 py-16"><div class="max-w-7xl mx-auto px-4">
+    <div class="text-center mb-10"><h2 class="text-2xl md:text-3xl font-bold text-emerald-800">Berita, Pengumuman &amp; Kegiatan</h2><div class="w-20 h-1 bg-amber-400 mx-auto mt-2 rounded"></div></div>
+    <div id="newsGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </div></section>
+
+  <section id="apbdes" class="max-w-7xl mx-auto px-4 py-16">
+    <div class="text-center mb-10"><h2 class="text-2xl md:text-3xl font-bold text-emerald-800">Transparansi APBDes <span id="apbYear"></span></h2><div class="w-20 h-1 bg-amber-400 mx-auto mt-2 rounded"></div></div>
+    <div id="apbBox" class="grid md:grid-cols-2 gap-6"></div>
+  </section>
+</main>
+
+<!-- ADMIN -->
+<main id="adminView" class="hidden bg-gray-50 min-h-screen">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div><h2 class="text-2xl font-bold text-emerald-800 flex items-center gap-2"><i data-lucide="layout-dashboard" class="w-6 h-6"></i>Dashboard Admin</h2><p id="adminWho" class="text-sm text-gray-500">Tersinkron dengan Firebase.</p></div>
+      <div class="flex gap-2"><button onclick="chPass()" class="btn border bg-white hover:bg-gray-100"><i data-lucide="key-round" class="w-4 h-4"></i>Ganti Password</button><button onclick="goPublic()" class="btn border bg-white hover:bg-gray-100"><i data-lucide="globe" class="w-4 h-4"></i>Lihat Website</button><button onclick="logout()" class="btn bg-red-600 hover:bg-red-700 text-white"><i data-lucide="log-out" class="w-4 h-4"></i>Keluar</button></div>
+    </div>
+    <div id="tabs" class="flex flex-wrap gap-2 mb-6"></div>
+    <div id="tabBody"></div>
+    <button id="resetBtn" onclick="resetData()" class="mt-8 text-xs text-gray-500 underline">Reset semua data ke contoh awal</button>
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="bg-emerald-950 text-emerald-100">
+  <div class="max-w-7xl mx-auto px-4 py-12 grid md:grid-cols-4 gap-8 text-sm">
+    <div><div class="flex items-center gap-3 mb-3"><span id="logoFoot"></span><b id="cfgFootNama" class="text-white leading-tight">Pemerintah Desa<br>Bandungan</b></div><p id="cfgFootDesc" class="text-emerald-200">Melayani dengan transparan, cepat, dan amanah.</p></div>
+    <div><h4 class="font-bold text-amber-300 mb-3">Alamat Kantor</h4><p id="cfgAlamat">Kantor Kepala Desa Bandungan<br>Kec. Saradan, Kab. Madiun<br>Provinsi Jawa Timur 63155</p></div>
+    <div><h4 class="font-bold text-amber-300 mb-3">Kontak &amp; Jam Layanan</h4><p class="flex gap-2"><i data-lucide="phone" class="w-4 h-4 mt-0.5"></i><span id="cfgTelp">(0351) 000-0000 (contoh)</span></p><p class="flex gap-2"><i data-lucide="siren" class="w-4 h-4 mt-0.5"></i><span id="cfgDar">Darurat: 0812-0000-0000 (contoh)</span></p><p id="cfgJam" class="mt-2">Senin–Kamis 08.00–15.00<br>Jumat 08.00–11.30 WIB</p></div>
+    <div><h4 class="font-bold text-amber-300 mb-3">Media Sosial</h4><div class="flex gap-3"><a class="p-2 rounded-full bg-emerald-800 hover:bg-amber-400 hover:text-emerald-950" id="cfgFb" href="#" title="Facebook"><i data-lucide="facebook" class="w-5 h-5"></i></a><a class="p-2 rounded-full bg-emerald-800 hover:bg-amber-400 hover:text-emerald-950" id="cfgIg" href="#" title="Instagram"><i data-lucide="instagram" class="w-5 h-5"></i></a><a class="p-2 rounded-full bg-emerald-800 hover:bg-amber-400 hover:text-emerald-950" id="cfgYt" href="#" title="YouTube"><i data-lucide="youtube" class="w-5 h-5"></i></a></div></div>
+  </div>
+  <div id="cfgCopy" class="border-t border-emerald-800 text-center text-xs py-4 text-emerald-300">© 2026 Pemerintah Desa Bandungan, Kec. Saradan, Kab. Madiun. Seluruh hak cipta dilindungi.</div>
+</footer>
+
+<!-- MODAL -->
+<div id="modal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onclick="if(event.target===this)closeModal()">
+  <div id="modalBody" class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"></div>
+</div>
+<div id="netChip" class="fixed bottom-4 left-4 z-40 text-xs px-3 py-1.5 rounded-full bg-gray-800 text-white shadow flex items-center gap-2 opacity-90"></div>
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-emerald-800 text-white px-5 py-3 rounded-xl shadow-lg text-sm"></div>
+
+<script>
+const LOGO=s=>(db&&db.cfg&&db.cfg.logo)?`<img src="${db.cfg.logo.replace(/"/g,'%22')}" alt="Logo" style="width:${s}px;height:${s}px;object-fit:contain">`:`<svg width="${s}" height="${s}" viewBox="0 0 64 64" aria-label="Logo Kabupaten Madiun (placeholder)"><path d="M32 3 56 11v20c0 14-10 25-24 30C18 56 8 45 8 31V11z" fill="#047857" stroke="#fbbf24" stroke-width="3"/><circle cx="32" cy="27" r="9" fill="#fbbf24"/><path d="M32 18v18M26 22l12 10M38 22 26 32" stroke="#047857" stroke-width="1.5"/><path d="M18 46c6-5 22-5 28 0" stroke="#fbbf24" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
+const seed=()=>({cfg:defCfg(),users:defUsers(),
+ stats:{penduduk:3412,kk:1087,lk:1718,pr:1694,dusun:4,rw:8,rt:24},
+ apb:{tahun:2026,pendTarget:2150000000,pendReal:1480000000,belTarget:2150000000,belReal:1290000000},
+ officials:[
+  {id:1,nama:'Sugiyanto, S.Sos',jabatan:'Kepala Desa',nip:'-'},
+  {id:2,nama:'Sri Wahyuni, S.E',jabatan:'Sekretaris Desa',nip:'NIAP 3519-0101'},
+  {id:3,nama:'Agus Prasetyo',jabatan:'Kasi Pemerintahan',nip:'NIAP 3519-0102'},
+  {id:4,nama:'Siti Aminah',jabatan:'Kasi Kesejahteraan',nip:'NIAP 3519-0103'},
+  {id:5,nama:'Bambang Hariyadi',jabatan:'Kasi Pelayanan',nip:'NIAP 3519-0104'},
+  {id:6,nama:'Dwi Lestari',jabatan:'Kaur Keuangan',nip:'NIAP 3519-0105'},
+  {id:7,nama:'Slamet Riyadi',jabatan:'Kaur Umum &amp; Perencanaan'.replace('&amp;','&'),nip:'NIAP 3519-0106'},
+  {id:8,nama:'Eko Setiawan',jabatan:'Kepala Dusun Krajan',nip:'NIAP 3519-0107'}],
+ news:[
+  {id:1,judul:'Musyawarah Desa Bahas Penetapan RKPDes 2027',kat:'Kegiatan',tgl:'2026-11-10',img:'',isi:'Pemerintah Desa Bandungan menggelar Musyawarah Desa (Musdes) yang dihadiri BPD, tokoh masyarakat, perwakilan RT/RW, dan kelompok tani. Agenda utama adalah penyusunan Rencana Kerja Pemerintah Desa (RKPDes) tahun 2027 dengan prioritas perbaikan jalan usaha tani, saluran irigasi, dan penguatan BUMDes.\n\nKepala Desa mengajak seluruh warga aktif menyampaikan usulan agar pembangunan tepat sasaran.'},
+  {id:2,judul:'Pengumuman: Pembagian Pupuk Subsidi untuk Kelompok Tani',kat:'Pengumuman',tgl:'2026-11-05',img:'',isi:'Diberitahukan kepada seluruh petani terdaftar bahwa penebusan pupuk subsidi dapat dilakukan di kios resmi dengan membawa KTP dan kartu tani. Informasi jadwal lengkap dapat ditanyakan ke Kantor Desa pada jam kerja.'},
+  {id:3,nama:'',judul:'Posyandu Balita dan Lansia Digelar Rutin Tiap Bulan',kat:'Kesehatan',tgl:'2026-10-28',img:'',isi:'Kegiatan Posyandu meliputi penimbangan balita, pemberian makanan tambahan, imunisasi, serta pemeriksaan tekanan darah dan gula darah untuk lansia. Warga diharapkan membawa buku KIA/KMS.'},
+  {id:4,judul:'Kerja Bakti Bersih Desa Menyambut Musim Hujan',kat:'Kegiatan',tgl:'2026-10-20',img:'',isi:'Ratusan warga bergotong royong membersihkan saluran air dan selokan di seluruh dusun untuk mencegah banjir dan genangan. Kegiatan ditutup dengan makan bersama.'},
+  {id:5,judul:'Pelatihan UMKM Olahan Jagung dan Keripik Singkong',kat:'Ekonomi',tgl:'2026-10-12',img:'',isi:'BUMDes bersama dinas terkait mengadakan pelatihan pengemasan dan pemasaran digital bagi pelaku UMKM. Peserta belajar membuat label produk dan memasarkan lewat marketplace.'},
+  {id:6,judul:'Jadwal Pelayanan Administrasi Kependudukan Bulan Ini',kat:'Pengumuman',tgl:'2026-10-02',img:'',isi:'Pelayanan surat pengantar dilayani Senin–Kamis pukul 08.00–15.00 dan Jumat pukul 08.00–11.30 WIB. Pengajuan juga dapat dilakukan lewat fitur Layanan Mandiri pada website ini.'}],
+ letters:[
+  {id:1,nik:'3519010101900001',nama:'Slamet Widodo',tempat:'Madiun',tglLahir:'1990-01-01',alamat:'Dusun Krajan RT 02 RW 01, Desa Bandungan',perlu:'Pengajuan KUR usaha tani',jenis:'Surat Keterangan Usaha',wa:'081234567801',tgl:'2026-11-12',status:'Menunggu'},
+  {id:2,nik:'3519015505950002',nama:'Rina Kusumawati',tempat:'Madiun',tglLahir:'1995-05-15',alamat:'Dusun Tulung RT 04 RW 02, Desa Bandungan',perlu:'Pembuatan KTP baru',jenis:'Surat Pengantar KTP/KK',wa:'081234567802',tgl:'2026-11-11',status:'Diproses'},
+  {id:3,nik:'3519012003880003',nama:'Mulyono',tempat:'Ngawi',tglLahir:'1988-03-20',alamat:'Dusun Bandungan RT 01 RW 03, Desa Bandungan',perlu:'Administrasi pekerjaan',jenis:'Surat Keterangan Domisili',wa:'081234567803',tgl:'2026-11-09',status:'Selesai'}]
+});
+const s0=seed();
+let db={cfg:defCfg(),stats:s0.stats,apb:s0.apb,officials:[],news:[],letters:[],users:[]};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Number(n||0).toLocaleString('id-ID');
+const rp=n=>'Rp '+fmt(n);
+const nid=a=>a.reduce((m,x)=>Math.max(m,x.id),0)+1;
+const tglID=d=>{try{return new Date(d+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}catch(e){return d}};
+const icons=()=>window.lucide&&lucide.createIcons();
+let admin=false,cur=null,editUser=null,tab='berita',editNews=null,editOff=null;
+
+function toast(m){const t=$('toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),2600)}
+function openModal(h){$('modalBody').innerHTML=h;$('modal').classList.remove('hidden');icons()}
+function closeModal(){$('modal').classList.add('hidden')}
+
+/* ===== PUBLIK ===== */
+function renderPublic(){
+ const s=db.stats;
+ const cards=[['users','Jumlah Penduduk',fmt(s.penduduk)+' jiwa'],['home','Kepala Keluarga',fmt(s.kk)+' KK'],['user','Laki-laki',fmt(s.lk)],['user-round','Perempuan',fmt(s.pr)],['map-pin','Dusun / RW / RT',`${s.dusun} / ${s.rw} / ${s.rt}`]];
+ $('statGrid').innerHTML=cards.map((c,i)=>`<div class="bg-white rounded-2xl shadow-lg border-t-4 ${i%2?'border-amber-400':'border-emerald-600'} p-5 ${i==4?'col-span-2 md:col-span-1':''}"><i data-lucide="${c[0]}" class="w-6 h-6 text-emerald-700"></i><div class="text-xl md:text-2xl font-extrabold text-emerald-900 mt-2">${esc(c[2])}</div><div class="text-xs text-gray-500">${c[1]}</div></div>`).join('');
+ $('offGrid').innerHTML=db.officials.map((o,i)=>`<div class="bg-white rounded-2xl shadow border border-gray-100 p-5 text-center hover:shadow-lg transition"><div class="w-24 h-24 mx-auto rounded-full ${i==0?'bg-amber-100 ring-4 ring-amber-400':'bg-emerald-100 ring-4 ring-emerald-200'} flex items-center justify-center overflow-hidden"><svg viewBox="0 0 24 24" class="w-16 h-16 text-emerald-600 mt-3" fill="currentColor"><circle cx="12" cy="8" r="4.5"/><path d="M2.5 24c0-6 4-9 9.5-9s9.5 3 9.5 9z"/></svg></div><h3 class="font-bold mt-3 text-emerald-900 text-sm md:text-base">${esc(o.nama)}</h3><p class="text-amber-600 font-semibold text-sm">${esc(o.jabatan)}</p><p class="text-xs text-gray-400 mt-1">${esc(o.nip)}</p></div>`).join('')||'<p class="col-span-full text-center text-gray-500">Belum ada data.</p>';
+ const sorted=[...db.news].sort((a,b)=>b.tgl.localeCompare(a.tgl));
+ $('newsGrid').innerHTML=sorted.map(n=>`<article onclick="readNews('${n.id}')" class="cursor-pointer bg-white rounded-2xl overflow-hidden shadow hover:shadow-xl transition border border-gray-100 flex flex-col"><div class="relative h-44 bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center"><i data-lucide="${n.kat=='Pengumuman'?'megaphone':n.kat=='Kesehatan'?'heart-pulse':n.kat=='Ekonomi'?'store':'users'}" class="w-12 h-12 text-white/70"></i>${n.img?`<img src="${esc(n.img)}" alt="" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()">`:''}<span class="absolute top-3 left-3 bg-amber-400 text-emerald-950 text-xs font-bold px-2 py-1 rounded">${esc(n.kat)}</span></div><div class="p-5 flex-1 flex flex-col"><p class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="calendar" class="w-3 h-3"></i>${tglID(n.tgl)}</p><h3 class="font-bold text-emerald-900 mt-1 leading-snug">${esc(n.judul)}</h3><p class="text-sm text-gray-600 mt-2 line-clamp-3">${esc(n.isi)}</p><span class="mt-auto pt-3 text-sm font-semibold text-emerald-700">Baca selengkapnya →</span></div></article>`).join('')||'<p class="col-span-full text-center text-gray-500">Belum ada berita.</p>';
+ const a=db.apb;$('apbYear').textContent=a.tahun;
+ const bar=(t,ic,tg,re,col)=>{const p=tg?Math.min(100,re/tg*100):0;return `<div class="bg-white rounded-2xl shadow border p-6"><h3 class="font-bold text-lg flex items-center gap-2 text-emerald-800"><i data-lucide="${ic}" class="w-5 h-5 text-amber-500"></i>${t}</h3><div class="mt-4 flex justify-between text-sm"><span class="text-gray-500">Anggaran</span><b>${rp(tg)}</b></div><div class="flex justify-between text-sm"><span class="text-gray-500">Realisasi</span><b class="text-emerald-700">${rp(re)}</b></div><div class="mt-3 h-5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full ${col} text-[11px] text-white font-bold flex items-center justify-end pr-2 transition-all" style="width:${p}%">${p.toFixed(1)}%</div></div></div>`};
+ $('apbBox').innerHTML=bar('Pendapatan Desa','trending-up',a.pendTarget,a.pendReal,'bg-emerald-600')+bar('Belanja Desa','wallet',a.belTarget,a.belReal,'bg-amber-500');
+ icons();
+}
+function readNews(id){const n=db.news.find(x=>x.id==id);if(!n)return;
+ openModal(`<div class="h-40 bg-gradient-to-br from-emerald-600 to-emerald-800 relative">${n.img?`<img src="${esc(n.img)}" alt="" class="w-full h-full object-cover" onerror="this.remove()">`:''}<button onclick="closeModal()" class="absolute top-3 right-3 bg-white rounded-full p-1.5"><i data-lucide="x" class="w-5 h-5"></i></button></div><div class="p-6"><span class="bg-amber-400 text-emerald-950 text-xs font-bold px-2 py-1 rounded">${esc(n.kat)}</span><h3 class="text-xl font-bold text-emerald-900 mt-3">${esc(n.judul)}</h3><p class="text-xs text-gray-500 mt-1">${tglID(n.tgl)} • Admin Desa Bandungan</p><div class="mt-4 text-gray-700 whitespace-pre-line leading-relaxed">${esc(n.isi)}</div></div>`)}
+
+/* ===== LOGIN ===== */
+function goPublic(){$('adminView').classList.add('hidden');$('publicView').classList.remove('hidden')}
+function loginClick(){if(admin){admin=true;showAdmin();return}
+ openModal(`<form onsubmit="return doLogin(event)" class="p-6"><div class="flex justify-between items-start"><div class="flex items-center gap-3">${LOGO(44)}<div><h3 class="font-bold text-lg text-emerald-800">Login Admin</h3><p class="text-xs text-gray-500">Pemerintah Desa Bandungan</p></div></div><button type="button" onclick="closeModal()"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+ <div class="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm ${demo?'':'hidden'}"><b>Petunjuk uji coba (mode demo):</b><br>Username: <code class="bg-white px-1 rounded">admin</code><br>Password: <code class="bg-white px-1 rounded">bandungan123</code><br><span class="text-xs">Akun operator (akses terbatas): <code class="bg-white px-1 rounded">operator</code> / <code class="bg-white px-1 rounded">operator123</code></span></div>
+ <div class="mt-4 space-y-3"><input id="lg_u" class="inp" placeholder="Username" required autocomplete="username"><input id="lg_p" type="password" class="inp" placeholder="Password" required autocomplete="current-password"></div>
+ <p id="lg_err" class="text-red-600 text-sm mt-2 hidden">Username atau password salah.</p>${!demo&&!bootstrapped?'<button type="button" onclick="setupAdmin()" class="text-sm text-emerald-700 underline mt-2">Pertama kali memasang? Buat Admin Utama</button>':''}
+ <button class="btn bg-emerald-700 hover:bg-emerald-800 text-white w-full justify-center mt-4"><i data-lucide="log-in" class="w-4 h-4"></i>Masuk</button></form>`)}
+function showAdmin(){$('publicView').classList.add('hidden');$('adminView').classList.remove('hidden');$('loginTxt').textContent='Dashboard Admin';scrollTo(0,0);renderAdmin()}
+
+/* ===== ADMIN ===== */
+function setTab(t){tab=t;renderAdmin()}
+function renderAdmin(){
+ const T=[['berita','newspaper','Berita & Pengumuman'],['perangkat','users','Perangkat Desa'],['surat','mail','Permohonan Surat'],['statistik','bar-chart-3','Statistik & APBDes'],['tampilan','palette','Profil & Tampilan'],['pengguna','user-cog','Kelola Pengguna']].filter(t=>can(t[0]));if(!can(tab))tab=(T[0]||['kosong'])[0];
+ $('adminWho').textContent='Masuk sebagai '+cur.nama+' ('+(cur.role==='admin'?'Admin':'Operator')+') • '+(demo?'Mode demo (Firebase belum dikonfigurasi)':'Tersinkron real-time dengan Firebase');$('resetBtn').classList.toggle('hidden',cur.role!=='admin');
+ $('tabs').innerHTML=T.map(t=>`<button onclick="setTab('${t[0]}')" class="btn ${tab==t[0]?'bg-emerald-700 text-white':'bg-white border hover:bg-emerald-50'}"><i data-lucide="${t[1]}" class="w-4 h-4"></i>${t[2]}${t[0]=='surat'&&db.letters.some(l=>l.status=='Menunggu')?`<span class="bg-amber-400 text-emerald-950 text-xs rounded-full px-2">${db.letters.filter(l=>l.status=='Menunggu').length}</span>`:''}</button>`).join('');
+ $('tabBody').innerHTML=({berita:tNews,perangkat:tOff,surat:tLet,statistik:tStat,tampilan:tCfg,pengguna:tUsr,kosong:()=>'<p class="text-gray-500 bg-white rounded-2xl shadow p-6">Akun ini belum diberi akses fitur apa pun. Hubungi admin.</p>'})[tab]();icons();
+}
+const lbl=t=>`<label class="text-sm font-semibold block mb-1">${t}</label>`;
+function tNews(){const n=editNews?db.news.find(x=>x.id==editNews):{judul:'',kat:'Kegiatan',tgl:new Date().toISOString().slice(0,10),img:'',isi:''};
+ return `<div class="grid lg:grid-cols-5 gap-6"><form onsubmit="return saveNews(event)" class="lg:col-span-2 bg-white rounded-2xl shadow p-5 space-y-3 h-fit"><h3 class="font-bold text-emerald-800">${editNews?'Edit Berita':'Tambah Berita Baru'}</h3>
+ <div>${lbl('Judul')}<input id="n_judul" class="inp" required value="${esc(n.judul)}"></div>
+ <div class="grid grid-cols-2 gap-3"><div>${lbl('Kategori')}<select id="n_kat" class="inp">${['Kegiatan','Pengumuman','Kesehatan','Ekonomi','Pendidikan'].map(k=>`<option ${k==n.kat?'selected':''}>${k}</option>`).join('')}</select></div><div>${lbl('Tanggal')}<input id="n_tgl" type="date" class="inp" required value="${n.tgl}"></div></div>
+ <div>${lbl('URL Gambar (opsional)')}<input id="n_img" class="inp" placeholder="https://..." value="${esc(n.img)}"></div>
+ <div>${lbl('Isi Berita')}<textarea id="n_isi" rows="6" class="inp" required>${esc(n.isi)}</textarea></div>
+ <div class="flex gap-2"><button class="btn bg-emerald-700 text-white"><i data-lucide="save" class="w-4 h-4"></i>${editNews?'Simpan Perubahan':'Tambah'}</button>${editNews?`<button type="button" onclick="editNews=null;renderAdmin()" class="btn border">Batal</button>`:''}</div></form>
+ <div class="lg:col-span-3 bg-white rounded-2xl shadow p-5"><h3 class="font-bold text-emerald-800 mb-3">Daftar Berita (${db.news.length})</h3><div class="divide-y">${[...db.news].sort((a,b)=>b.tgl.localeCompare(a.tgl)).map(x=>`<div class="py-3 flex gap-3 items-center justify-between"><div class="min-w-0"><p class="font-semibold truncate">${esc(x.judul)}</p><p class="text-xs text-gray-500">${esc(x.kat)} • ${tglID(x.tgl)}</p></div><div class="flex gap-1 shrink-0"><button onclick="editNews='${x.id}';renderAdmin();scrollTo(0,0)" class="btn bg-amber-100 text-amber-800 hover:bg-amber-200 !px-3"><i data-lucide="pencil" class="w-4 h-4"></i>Edit</button><button onclick="delNews('${x.id}')" class="btn bg-red-100 text-red-700 hover:bg-red-200 !px-3"><i data-lucide="trash-2" class="w-4 h-4"></i>Hapus</button></div></div>`).join('')||'<p class="text-gray-500 text-sm">Belum ada berita.</p>'}</div></div></div>`}
+
+function tOff(){const o=editOff?db.officials.find(x=>x.id==editOff):{nama:'',jabatan:'',nip:''};
+ return `<div class="grid lg:grid-cols-5 gap-6"><form onsubmit="return saveOff(event)" class="lg:col-span-2 bg-white rounded-2xl shadow p-5 space-y-3 h-fit"><h3 class="font-bold text-emerald-800">${editOff?'Edit Perangkat Desa':'Tambah Perangkat Desa'}</h3>
+ <div>${lbl('Nama')}<input id="o_nama" class="inp" required value="${esc(o.nama)}"></div><div>${lbl('Jabatan')}<input id="o_jab" class="inp" required placeholder="Contoh: Kaur Umum" value="${esc(o.jabatan)}"></div><div>${lbl('NIP / NIAP')}<input id="o_nip" class="inp" value="${esc(o.nip)}"></div>
+ <div class="flex gap-2"><button class="btn bg-emerald-700 text-white"><i data-lucide="save" class="w-4 h-4"></i>${editOff?'Simpan Perubahan':'Tambah'}</button>${editOff?`<button type="button" onclick="editOff=null;renderAdmin()" class="btn border">Batal</button>`:''}</div></form>
+ <div class="lg:col-span-3 bg-white rounded-2xl shadow p-5"><h3 class="font-bold text-emerald-800 mb-3">Daftar Perangkat (${db.officials.length})</h3><div class="divide-y">${db.officials.map(x=>`<div class="py-3 flex gap-3 items-center justify-between"><div class="min-w-0"><p class="font-semibold truncate">${esc(x.nama)}</p><p class="text-xs text-gray-500">${esc(x.jabatan)} • ${esc(x.nip)}</p></div><div class="flex gap-1 shrink-0"><button onclick="editOff='${x.id}';renderAdmin();scrollTo(0,0)" class="btn bg-amber-100 text-amber-800 hover:bg-amber-200 !px-3"><i data-lucide="pencil" class="w-4 h-4"></i>Edit</button><button onclick="delOff('${x.id}')" class="btn bg-red-100 text-red-700 hover:bg-red-200 !px-3"><i data-lucide="trash-2" class="w-4 h-4"></i>Hapus</button></div></div>`).join('')}</div></div></div>`}
+
+function tLet(){const col={Menunggu:'bg-amber-100 text-amber-800',Diproses:'bg-blue-100 text-blue-800',Selesai:'bg-emerald-100 text-emerald-800'};
+ return `<div class="bg-white rounded-2xl shadow p-5"><h3 class="font-bold text-emerald-800 mb-3">Antrean Permohonan Surat (${db.letters.length})</h3><div class="overflow-x-auto"><table class="w-full text-sm min-w-[900px]"><thead><tr class="text-left text-gray-500 border-b"><th class="py-2">No</th><th>Tanggal</th><th>Pemohon</th><th>Jenis Surat</th><th>WhatsApp</th><th>Status</th><th></th></tr></thead><tbody>${[...db.letters].reverse().map(l=>`<tr class="border-b"><td class="py-2">#${String(l.no||'—').padStart(4,'0')}</td><td>${tglID(l.tgl)}</td><td><b>${esc(l.nama)}</b><br><span class="text-xs text-gray-500">${esc(l.nik)}</span><br><span class="text-xs text-gray-500">TTL: ${esc(l.tempat||'-')}, ${l.tglLahir?tglID(l.tglLahir):'-'}</span><br><span class="text-xs text-gray-500">${esc(l.alamat||'-')}</span></td><td>${esc(l.jenis)}${l.perlu?`<br><span class="text-xs text-gray-500">Keperluan: ${esc(l.perlu)}</span>`:''}</td><td><a class="text-emerald-700 underline" target="_blank" rel="noopener" href="https://wa.me/${esc(l.wa.replace(/^0/,'62').replace(/\D/g,''))}">${esc(l.wa)}</a></td><td><select onchange="setStatus('${l.id}',this.value)" class="rounded px-2 py-1 text-xs font-semibold ${col[l.status]}">${['Menunggu','Diproses','Selesai'].map(s=>`<option ${s==l.status?'selected':''}>${s}</option>`).join('')}</select></td><td class="whitespace-nowrap"><button onclick="printLet('${l.id}')" class="text-emerald-700 p-1" title="Cetak"><i data-lucide="printer" class="w-4 h-4"></i></button><button onclick="editLet('${l.id}')" class="text-amber-600 p-1" title="Edit"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="delLet('${l.id}')" class="text-red-600 p-1" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')||'<tr><td colspan="7" class="py-6 text-center text-gray-500">Belum ada permohonan.</td></tr>'}</tbody></table></div></div>`}
+
+function tStat(){const s=db.stats,a=db.apb;
+ const f=(id,t,v)=>`<div>${lbl(t)}<input id="${id}" type="number" min="0" class="inp" value="${v}"></div>`;
+ return `<form onsubmit="return saveStat(event)" class="grid md:grid-cols-2 gap-6"><div class="bg-white rounded-2xl shadow p-5 space-y-3"><h3 class="font-bold text-emerald-800">Statistik Penduduk</h3><div class="grid grid-cols-2 gap-3">${f('s_p','Jumlah Penduduk',s.penduduk)}${f('s_kk','Kepala Keluarga',s.kk)}${f('s_lk','Laki-laki',s.lk)}${f('s_pr','Perempuan',s.pr)}${f('s_d','Jumlah Dusun',s.dusun)}${f('s_rw','Jumlah RW',s.rw)}${f('s_rt','Jumlah RT',s.rt)}</div></div>
+ <div class="bg-white rounded-2xl shadow p-5 space-y-3"><h3 class="font-bold text-emerald-800">Anggaran APBDes</h3><div class="grid grid-cols-2 gap-3">${f('a_th','Tahun Anggaran',a.tahun)}<div></div>${f('a_pt','Target Pendapatan (Rp)',a.pendTarget)}${f('a_pr','Realisasi Pendapatan (Rp)',a.pendReal)}${f('a_bt','Anggaran Belanja (Rp)',a.belTarget)}${f('a_br','Realisasi Belanja (Rp)',a.belReal)}</div></div>
+ <div class="md:col-span-2"><button class="btn bg-emerald-700 hover:bg-emerald-800 text-white"><i data-lucide="save" class="w-4 h-4"></i>Simpan Perubahan</button></div></form>`}
+
+/* ===== PENGATURAN TAMPILAN & EDIT DATA ===== */
+function defCfg(){return{nama:'PEMERINTAH DESA BANDUNGAN',sub:'Kec. Saradan, Kab. Madiun',top:'Portal Resmi Pemerintah Desa Bandungan • Kabupaten Madiun, Jawa Timur',badge:'Portal Resmi Desa',h1a:'Selamat Datang di Portal Resmi',h1b:'Desa Bandungan',desc:'Desa agraris di Kecamatan Saradan, Kabupaten Madiun dengan hamparan sawah, ladang, dan kawasan hutan jati di sekitarnya. Potensi unggulan: pertanian padi & jagung, peternakan sapi, UMKM olahan pangan, serta kearifan gotong royong warga.',kab:'KABUPATEN MADIUN',kabSub:'Desa Bandungan • Kec. Saradan',visi:'“Terwujudnya Desa Bandungan yang Mandiri, Sejahtera, Berbudaya, dan Transparan melalui Tata Kelola Pemerintahan yang Baik.”',misi:'Meningkatkan kualitas pelayanan publik yang cepat, mudah, dan transparan.\nMemperkuat ekonomi desa melalui pertanian, peternakan, dan UMKM.\nMembangun dan memelihara infrastruktur desa yang merata.\nMeningkatkan kualitas pendidikan, kesehatan, dan kehidupan keagamaan.\nMelestarikan budaya gotong royong dan kearifan lokal.',footNama:'Pemerintah Desa\nBandungan',footDesc:'Melayani dengan transparan, cepat, dan amanah.',alamat:'Kantor Kepala Desa Bandungan\nKec. Saradan, Kab. Madiun\nProvinsi Jawa Timur 63155',telp:'(0351) 000-0000 (contoh)',dar:'Darurat: 0812-0000-0000 (contoh)',jam:'Senin–Kamis 08.00–15.00\nJumat 08.00–11.30 WIB',fb:'#',ig:'#',yt:'#',modin:'Bapak Modin Desa Bandungan (datang langsung ke Kantor Desa pada jam layanan)',modinWa:'',copy:'© 2026 Pemerintah Desa Bandungan, Kec. Saradan, Kab. Madiun. Seluruh hak cipta dilindungi.',logo:'',heroBg:'',overlay:55,profilIntro:'Mengenal lebih dekat Desa Bandungan, Kecamatan Saradan, Kabupaten Madiun: sejarah, wilayah, visi, misi, dan potensi desa.',sejarah:'Desa Bandungan merupakan salah satu desa di wilayah Kecamatan Saradan, Kabupaten Madiun, Provinsi Jawa Timur. Wilayahnya didominasi lahan pertanian, ladang, dan kawasan hutan sehingga sebagian besar warga bergantung pada sektor pertanian dan peternakan.\nSejak dahulu masyarakat Desa Bandungan dikenal memegang teguh nilai gotong royong, kerukunan, dan kearifan lokal yang diwariskan lintas generasi.\n(Teks contoh. Ganti dengan sejarah resmi desa lewat Dashboard Admin > Profil & Tampilan.)',luas:'1.250 Ha (contoh)',tinggi:'\u00b1 90 mdpl (contoh)',kodepos:'63155',kecamatan:'Saradan',kabupaten:'Madiun',provinsi:'Jawa Timur',bUtara:'',bTimur:'',bSelatan:'',bBarat:'',potensi:'Pertanian: Hamparan sawah dan ladang dengan komoditas padi, jagung, dan palawija.\nPeternakan: Pemeliharaan sapi, kambing, dan unggas oleh kelompok ternak warga.\nUMKM & BUMDes: Olahan pangan seperti keripik dan produk jagung yang dikelola warga dan BUMDes.\nKehutanan: Kawasan hutan di sekitar desa yang dimanfaatkan secara lestari.\nIrigasi & Air: Saluran irigasi dan sumber air untuk pertanian sepanjang musim.\nGotong Royong: Kelompok tani, PKK, karang taruna, dan kerja bakti rutin warga.',primary:'#047857',accent:'#fbbf24',pageBg:'#ffffff'}}
+const h2r=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)||0);
+const mixc=(c,t,p)=>c.map((v,i)=>Math.round(v+(t[i]-v)*p)).join(' ');
+const SH=['50','100','200','300','400','500','600','700','800','900','950'];
+function setScale(pre,B,at){const i0=SH.indexOf(at),st=document.documentElement.style;SH.forEach((s,i)=>{const d=i-i0;st.setProperty('--'+pre+s,d==0?B.join(' '):d<0?mixc(B,[255,255,255],-d/(i0+.6)):mixc(B,[0,0,0],d/(SH.length-i0)*.75))})}
+function applyTheme(){const c=db.cfg;setScale('e',h2r(c.primary),'700');setScale('a',h2r(c.accent),'400');document.documentElement.style.setProperty('--pagebg',c.pageBg)}
+function applyCfg(){const c=db.cfg,s=(i,v)=>{const e=$(i);if(e)e.textContent=v},br=(i,v)=>{const e=$(i);if(e)e.innerHTML=esc(v).replace(/\n/g,'<br>')};
+ applyTheme();document.title=c.nama+' - '+c.sub;
+ s('cfgNama',c.nama);s('cfgSub',c.sub);s('cfgTop',c.top);s('cfgBadge',c.badge);
+ $('cfgH1').innerHTML=esc(c.h1a)+' <span class="text-amber-300">'+esc(c.h1b)+'</span>';
+ s('cfgDesc',c.desc);s('cfgKab',c.kab);s('cfgKabSub',c.kabSub);s('cfgVisi',c.visi);
+ $('cfgMisi').innerHTML=c.misi.split('\n').filter(x=>x.trim()).map(x=>`<li>${esc(x)}</li>`).join('');
+ br('cfgFootNama',c.footNama);s('cfgFootDesc',c.footDesc);br('cfgAlamat',c.alamat);s('cfgTelp',c.telp);s('cfgDar',c.dar);br('cfgJam',c.jam);s('cfgCopy',c.copy);
+ [['cfgFb','fb'],['cfgIg','ig'],['cfgYt','yt']].forEach(([i,k])=>{const a=$(i),u=c[k]||'#';a.href=u;if(u!=='#'){a.target='_blank';a.rel='noopener'}else a.removeAttribute('target')});
+ const h=$('beranda');if(c.heroBg){const o=c.overlay/100,P=h2r(c.primary).map(v=>Math.round(v*.5)).join(',');h.style.backgroundImage=`linear-gradient(rgba(${P},${o}),rgba(${P},${o})),url("${c.heroBg.replace(/"/g,'%22')}")`;h.style.backgroundSize='cover';h.style.backgroundPosition='center'}else{h.style.backgroundImage='';h.style.backgroundSize=''}
+ renderProfil();
+ ['logoHead:42','logoHero:140','logoFoot:44'].forEach(x=>{const [i,z]=x.split(':');$(i).innerHTML=LOGO(z)})}
+const FLD=[['Identitas & Header',[['nama','Nama Pemerintahan'],['sub','Sub-judul (Kecamatan / Kabupaten)'],['top','Teks bar paling atas']]],['Hero (Banner Utama)',[['badge','Label lencana'],['h1a','Judul hero (bagian putih)'],['h1b','Judul hero (bagian aksen)'],['desc','Deskripsi hero','t'],['kab','Teks kartu hero baris 1'],['kabSub','Teks kartu hero baris 2']]],['Profil Desa',[['profilIntro','Kalimat pengantar profil','t'],['sejarah','Sejarah Desa (Enter = paragraf baru)','t'],['visi','Visi','t'],['misi','Misi (satu baris = satu poin)','t'],['potensi','Potensi Desa (satu baris: Judul: deskripsi)','t']]],['Data Umum & Batas Wilayah',[['luas','Luas wilayah'],['tinggi','Ketinggian'],['kodepos','Kode pos'],['kecamatan','Kecamatan'],['kabupaten','Kabupaten'],['provinsi','Provinsi'],['bUtara','Batas utara'],['bTimur','Batas timur'],['bSelatan','Batas selatan'],['bBarat','Batas barat']]],['Footer & Kontak',[['footNama','Nama di footer (Enter = baris baru)','t'],['footDesc','Deskripsi footer'],['alamat','Alamat kantor','t'],['telp','Telepon'],['dar','Kontak darurat'],['jam','Jam operasional','t'],['fb','Link Facebook (https://...)'],['ig','Link Instagram'],['yt','Link YouTube'],['modin','Keterangan Modin (nama / cara menghubungi)'],['modinWa','Nomor WhatsApp Modin (contoh: 0812xxxxxxx)'],['copy','Teks hak cipta']]]];
+const PRES=[['Zamrud','#047857','#fbbf24'],['Biru Laut','#1d4ed8','#fbbf24'],['Merah Putih','#b91c1c','#fcd34d'],['Ungu','#6d28d9','#fbbf24'],['Cokelat','#78350f','#f59e0b'],['Hitam Emas','#1f2937','#eab308']];
+function tCfg(){const c=db.cfg;
+ const fld=(k,t,ty)=>`<div>${lbl(t)}${ty?`<textarea id="c_${k}" rows="3" class="inp">${esc(c[k])}</textarea>`:`<input id="c_${k}" class="inp" value="${esc(c[k])}">`}</div>`;
+ const col=(k,t)=>`<div>${lbl(t)}<input id="c_${k}" type="color" value="${c[k]}" oninput="liveColor()" class="w-full h-10 rounded border cursor-pointer"></div>`;
+ const bg=c.heroBg?`background:url("${c.heroBg.replace(/'/g,'%27')}") center/cover`:'';
+ return `<form onsubmit="return saveCfg(event)" class="grid lg:grid-cols-3 gap-6"><div class="bg-white rounded-2xl shadow p-5 space-y-4 h-fit"><h3 class="font-bold text-emerald-800">Logo, Latar &amp; Warna</h3>
+ <div>${lbl('Logo (PNG/JPG/SVG)')}<div class="flex items-center gap-3"><span id="prevLogo">${LOGO(64)}</span><div class="space-y-1"><input type="file" accept="image/*" onchange="upImg(this,'logo')" class="text-xs w-44"><button type="button" onclick="clearImg('logo')" class="text-xs text-red-600 underline">Kembalikan logo bawaan</button></div></div></div>
+ <div>${lbl('Gambar latar Hero')}<div id="prevBg" class="h-24 rounded-lg bg-emerald-700 mb-2" style='${bg}'></div><input type="file" accept="image/*" onchange="upImg(this,'heroBg')" class="text-xs"><br><button type="button" onclick="clearImg('heroBg')" class="text-xs text-red-600 underline">Hapus gambar latar</button>
+ <label class="text-xs block mt-3">Gelap overlay gambar: <b id="ovv">${c.overlay}</b>%</label><input id="c_overlay" type="range" min="0" max="90" value="${c.overlay}" class="w-full" oninput="liveColor()"></div>
+ <div>${lbl('Tema warna cepat')}<div class="flex flex-wrap gap-2">${PRES.map((p,i)=>`<button type="button" onclick="preset(${i})" class="text-xs border rounded-full px-3 py-1 hover:bg-gray-100 flex items-center gap-1"><span class="w-3 h-3 rounded-full" style="background:${p[1]}"></span><span class="w-3 h-3 rounded-full" style="background:${p[2]}"></span>${p[0]}</button>`).join('')}</div></div>
+ <div class="grid grid-cols-3 gap-2">${col('primary','Utama')}${col('accent','Aksen')}${col('pageBg','Latar halaman')}</div>
+ <button type="button" onclick="resetLook()" class="text-xs text-gray-500 underline">Reset logo, latar &amp; warna</button></div>
+ <div class="lg:col-span-2 bg-white rounded-2xl shadow p-5 space-y-5">${FLD.map(g=>`<div><h4 class="font-bold text-amber-600 mb-2">${g[0]}</h4><div class="grid md:grid-cols-2 gap-3">${g[1].map(f=>`<div class="${f[2]?'md:col-span-2':''}">${fld(f[0],f[1],f[2])}</div>`).join('')}</div></div>`).join('')}
+ <button class="btn bg-emerald-700 hover:bg-emerald-800 text-white"><i data-lucide="save" class="w-4 h-4"></i>Simpan Pengaturan</button></div></form>`}
+function liveColor(){const c=db.cfg;['primary','accent','pageBg'].forEach(k=>c[k]=$('c_'+k).value);c.overlay=+$('c_overlay').value;$('ovv').textContent=c.overlay;applyCfg()}
+function preset(i){$('c_primary').value=PRES[i][1];$('c_accent').value=PRES[i][2];liveColor()}
+function readImg(file,max,type,cb){if(!file)return;const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const w=im.width||256,h=im.height||256,k=Math.min(1,max/Math.max(w,h)),cv=document.createElement('canvas');cv.width=Math.round(w*k);cv.height=Math.round(h*k);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);cb(cv.toDataURL(type,.85))};im.onerror=()=>toast('File gambar tidak valid');im.src=fr.result};fr.readAsDataURL(file)}
+function editLet(id){const l=db.letters.find(x=>x.id==id);if(!l)return;const J=[...JENIS];if(!J.includes(l.jenis))J.push(l.jenis);
+ openModal(`<form onsubmit="return saveLet(event,'${id}')" class="p-6 space-y-3"><div class="flex justify-between"><h3 class="font-bold text-lg text-emerald-800">Edit Permohonan #${String(l.no||'—').padStart(4,'0')}</h3><button type="button" onclick="closeModal()"><i data-lucide="x" class="w-5 h-5"></i></button></div><div>${lbl('NIK')}<input id="e_nik" class="inp" required maxlength="16" value="${esc(l.nik)}"></div><div>${lbl('Nama')}<input id="e_nama" class="inp" required value="${esc(l.nama)}"></div><div class="grid grid-cols-2 gap-3"><div>${lbl('Tempat Lahir')}<input id="e_tempat" class="inp" value="${esc(l.tempat||'')}"></div><div>${lbl('Tanggal Lahir')}<input id="e_tl" type="date" class="inp" value="${l.tglLahir||''}"></div></div><div>${lbl('Alamat')}<textarea id="e_alamat" rows="2" class="inp">${esc(l.alamat||'')}</textarea></div><div>${lbl('Keperluan')}<input id="e_perlu" class="inp" value="${esc(l.perlu||'')}"></div><div>${lbl('Jenis Surat')}<select id="e_jenis" class="inp">${J.map(j=>`<option ${j==l.jenis?'selected':''}>${esc(j)}</option>`).join('')}</select></div><div class="grid grid-cols-2 gap-3"><div>${lbl('WhatsApp')}<input id="e_wa" class="inp" required value="${esc(l.wa)}"></div><div>${lbl('Tanggal')}<input id="e_tgl" type="date" class="inp" required value="${l.tgl}"></div></div><div>${lbl('Status')}<select id="e_st" class="inp">${['Menunggu','Diproses','Selesai'].map(s=>`<option ${s==l.status?'selected':''}>${s}</option>`).join('')}</select></div><button class="btn bg-emerald-700 text-white"><i data-lucide="save" class="w-4 h-4"></i>Simpan</button></form>`)}
+
+/* ===== PROFIL DESA ===== */
+function renderProfil(){const c=db.cfg,L=t=>String(t||'').split('\n').filter(x=>x.trim());
+ $('cfgProfilIntro').textContent=c.profilIntro||'';
+ $('cfgSejarah').innerHTML=L(c.sejarah).map(x=>`<p>${esc(x)}</p>`).join('')||'<p class="text-gray-400">Belum diisi.</p>';
+ const rows=[['Luas wilayah',c.luas],['Ketinggian',c.tinggi],['Kode pos',c.kodepos],['Kecamatan',c.kecamatan],['Kabupaten',c.kabupaten],['Provinsi',c.provinsi],['Batas utara',c.bUtara],['Batas timur',c.bTimur],['Batas selatan',c.bSelatan],['Batas barat',c.bBarat]].filter(r=>r[1]);
+ $('cfgData').innerHTML=rows.map(r=>`<div class="py-2 flex justify-between gap-3"><dt class="text-emerald-100">${r[0]}</dt><dd class="font-semibold text-right">${esc(r[1])}</dd></div>`).join('');
+ const ic=['wheat','beef','store','trees','droplets','users'];
+ $('cfgPotensi').innerHTML=L(c.potensi).map((x,i)=>{const [t,...d]=x.split(':');return `<div class="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm hover:shadow-md transition"><span class="inline-flex w-10 h-10 rounded-xl bg-amber-100 text-amber-600 items-center justify-center"><i data-lucide="${ic[i%ic.length]}" class="w-5 h-5"></i></span><h4 class="font-bold text-emerald-800 mt-3">${esc(t.trim())}</h4><p class="text-sm text-gray-600 mt-1">${esc(d.join(':').trim())}</p></div>`}).join('');
+ icons()}
+
+/* ===== PENGGUNA & HAK AKSES ===== */
+function defUsers(){return[{id:1,username:'admin',password:'bandungan123',nama:'Administrator Desa',jabatan:'Admin Utama',role:'admin',perms:[],aktif:true},{id:2,username:'operator',password:'operator123',nama:'Dwi Lestari',jabatan:'Kaur Keuangan (Operator)',role:'operator',perms:['berita','surat'],aktif:true}]}
+const PERM=[['berita','Berita & Pengumuman'],['perangkat','Perangkat Desa'],['surat','Permohonan Surat'],['statistik','Statistik & APBDes'],['tampilan','Profil & Tampilan']];
+const can=t=>!!cur&&(cur.role==='admin'||(t!=='pengguna'&&(cur.perms||[]).includes(t)));
+const admCount=(ex)=>db.users.filter(u=>u.role==='admin'&&u.aktif!==false&&u.id!==ex).length;
+function tUsr(){const u=editUser?db.users.find(x=>x.id==editUser):{nama:'',jabatan:'',username:'',role:'operator',perms:['berita','surat'],aktif:true};
+ return `<div class="grid lg:grid-cols-5 gap-6"><form onsubmit="return saveUser(event)" class="lg:col-span-2 bg-white rounded-2xl shadow p-5 space-y-3 h-fit"><h3 class="font-bold text-emerald-800">${editUser?'Edit Pengguna':'Tambah Pengguna Baru'}</h3><p class="text-xs text-gray-500">Kuota operator: <b>${db.users.filter(x=>x.role==='operator').length}/10</b></p>
+ <div>${lbl('Ambil dari Perangkat Desa (opsional)')}<select class="inp" onchange="fillOff(this.value)"><option value="">— isi manual —</option>${db.officials.map(o=>`<option value="${o.id}">${esc(o.nama)} — ${esc(o.jabatan)}</option>`).join('')}</select></div>
+ <div>${lbl('Nama Lengkap')}<input id="u_nama" class="inp" required value="${esc(u.nama)}"></div>
+ <div>${lbl('Jabatan')}<input id="u_jab" class="inp" value="${esc(u.jabatan)}"></div>
+ <div class="grid grid-cols-2 gap-3"><div>${lbl('Username')}<input id="u_user" class="inp" ${editUser?'readonly':''} required pattern="[A-Za-z0-9_.]{3,20}" title="3-20 karakter: huruf, angka, _ atau ." value="${esc(u.username)}"></div><div>${lbl('Password')}<input id="u_pass" type="password" class="inp" ${editUser?'disabled':'required'} minlength="6" placeholder="${editUser?'Ubah lewat Ganti Password':'Min. 6 karakter'}"></div></div>
+ <div>${lbl('Peran')}<select id="u_role" class="inp"><option value="operator" ${u.role=='operator'?'selected':''}>Operator (akses terbatas)</option><option value="admin" ${u.role=='admin'?'selected':''}>Admin (akses penuh)</option></select></div>
+ <div>${lbl('Hak akses Operator')}<div class="space-y-1 text-sm">${PERM.map(p=>`<label class="flex items-center gap-2"><input type="checkbox" id="u_p_${p[0]}" ${(u.perms||[]).includes(p[0])?'checked':''}> ${p[1]}</label>`).join('')}</div><p class="text-xs text-gray-500 mt-1">Admin otomatis memiliki semua akses termasuk Kelola Pengguna.</p></div>
+ <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="u_aktif" ${u.aktif!==false?'checked':''}> Akun aktif</label>
+ <div class="flex gap-2"><button class="btn bg-emerald-700 text-white"><i data-lucide="save" class="w-4 h-4"></i>${editUser?'Simpan Perubahan':'Tambah Pengguna'}</button>${editUser?`<button type="button" onclick="editUser=null;renderAdmin()" class="btn border">Batal</button>`:''}</div></form>
+ <div class="lg:col-span-3 bg-white rounded-2xl shadow p-5"><h3 class="font-bold text-emerald-800 mb-3">Daftar Pengguna (${db.users.length}) <span class="text-xs font-normal text-gray-500">• Operator: ${db.users.filter(x=>x.role==='operator').length}/10</span></h3><div class="divide-y">${db.users.map(x=>`<div class="py-3 flex gap-3 items-center justify-between"><div class="min-w-0"><p class="font-semibold truncate">${esc(x.nama)} <span class="text-xs px-2 py-0.5 rounded-full ${x.role=='admin'?'bg-amber-100 text-amber-800':'bg-emerald-100 text-emerald-800'}">${x.role=='admin'?'Admin':'Operator'}</span>${x.aktif===false?' <span class="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">Nonaktif</span>':''}${cur&&x.id==cur.id?' <span class="text-xs text-gray-400">(Anda)</span>':''}</p><p class="text-xs text-gray-500">@${esc(x.username)} • ${esc(x.jabatan||'-')}</p><p class="text-xs text-gray-400">Akses: ${x.role=='admin'?'Semua':((x.perms||[]).map(k=>PERM.find(p=>p[0]==k)?.[1]).filter(Boolean).join(', ')||'Tidak ada')}</p></div><div class="flex gap-1 shrink-0"><button onclick="editUser='${x.id}';renderAdmin();scrollTo(0,0)" class="btn bg-amber-100 text-amber-800 hover:bg-amber-200 !px-3"><i data-lucide="pencil" class="w-4 h-4"></i>Edit</button><button onclick="delUser('${x.id}')" class="btn bg-red-100 text-red-700 hover:bg-red-200 !px-3"><i data-lucide="trash-2" class="w-4 h-4"></i>Hapus</button></div></div>`).join('')}</div></div></div>`}
+function fillOff(id){const o=db.officials.find(x=>x.id==id);if(o){$('u_nama').value=o.nama;$('u_jab').value=o.jabatan}}
+function chPass(){openModal(`<form onsubmit="return savePass(event)" class="p-6 space-y-3"><div class="flex justify-between"><h3 class="font-bold text-lg text-emerald-800">Ganti Password</h3><button type="button" onclick="closeModal()"><i data-lucide="x" class="w-5 h-5"></i></button></div><input id="cp_old" type="password" class="inp" required placeholder="Password lama"><input id="cp_new" type="password" class="inp" required minlength="6" placeholder="Password baru (min. 6 karakter)"><button class="btn bg-emerald-700 text-white">Simpan</button></form>`)}
+
+const JENIS=['Surat Pengantar KTP/KK','Surat Pengantar SKCK','Surat Keterangan Usaha','Surat Keterangan Tidak Mampu (SKTM)','Surat Keterangan Domisili','Surat Keterangan Penghasilan','Surat Keterangan Belum Menikah','Surat Pengantar Nikah (N1–N4)','Surat Keterangan Kelahiran','Surat Keterangan Kematian','Surat Keterangan Pindah / Datang','Surat Keterangan Beda Identitas','Surat Keterangan Tanah'];
+const JM=['Surat Pengantar Nikah (N1–N4)','Surat Keterangan Kelahiran','Surat Keterangan Kematian','Surat Keterangan Pindah / Datang'];
+$('l_jenis').innerHTML=JENIS.map(j=>`<option value="${j}">${j}${JM.includes(j)?' — hubungi Modin':''}</option>`).join('');
+function jenisChange(){const j=$('l_jenis').value,m=JM.includes(j),b=$('modinBox'),c=db.cfg,wa=(c.modinWa||'').replace(/\D/g,'').replace(/^0/,'62');b.classList.toggle('hidden',!m);
+ if(m)b.innerHTML=`<i data-lucide="info" class="w-4 h-4 inline text-amber-600"></i> <b>${esc(j)}</b> tidak dapat diajukan secara online. <b>Harap hubungi Modin</b>: ${esc(c.modin)}.${wa?` <a class="underline font-semibold text-emerald-700" target="_blank" rel="noopener" href="https://wa.me/${wa}">Chat WhatsApp Modin</a>`:''}`;
+ $('l_btn').disabled=m;$('l_btn').classList.toggle('opacity-50',m);$('l_btn').classList.toggle('cursor-not-allowed',m);icons()}
+/* ===== LAPISAN FIREBASE REALTIME DATABASE ===== */
+let FBA=null,FBR='desa_bandungan',bootstrapped=true,demo=false,booted=false,selfSub=null,lSub=null,uSub=null,subs=[],rt=0;
+const R=s=>FBR+'/'+s;
+const AUTHDOM='bandungan.desa',uprof=(v,id)=>({...v,id,perms:Object.keys(v.perms||{})}),pmap=a=>Object.fromEntries(a.map(k=>[k,true]));
+const clean=o=>JSON.parse(JSON.stringify(o));
+const arr=(v,k)=>{const a=v?Object.entries(v).map(([id,x])=>({...x,id})):[];return k?a.sort((x,y)=>(x[k]||0)-(y[k]||0)):a};
+const onErr=e=>{netState('Akses database ditolak / error','#dc2626');toast('Database: '+(e.code||e.message)+' (periksa Rules Firebase)')};
+const W=(p,m)=>Promise.resolve(p).then(r=>{if(m)toast(m);return r}).catch(e=>{toast('Gagal menyimpan: '+(e.code||e.message));netState('Gagal menulis data','#dc2626')});
+function netState(t,c){const e=$('netChip');if(e)e.innerHTML=`<span class="w-2 h-2 rounded-full inline-block" style="background:${c||'#10b981'}"></span>${t}`}
+
+/* Mode demo: tiruan Firebase di memori (dipakai jika kredensial belum diisi) */
+function makeDemo(){const T={},L=new Set(),P=s=>s.split('/').filter(Boolean),cl=v=>v==null?null:JSON.parse(JSON.stringify(v));
+ const gv=p=>P(p).reduce((o,k)=>o==null?null:(o[k]??null),T);
+ const sv=(p,v)=>{const a=P(p);let o=T;for(const k of a.slice(0,-1)){if(o[k]==null||typeof o[k]!=='object')o[k]={};o=o[k]}const k=a[a.length-1];if(v==null)delete o[k];else o[k]=cl(v)};
+ const fire=p=>{const q=p+'/';[...L].forEach(l=>{const m=l.p+'/';if(q.startsWith(m)||m.startsWith(q))l.cb(cl(gv(l.p)))})};
+ const acc={};let cu=null,nu=0;const mk=async(e,p)=>{if(acc[e])throw{code:'auth/email-already-in-use'};const uid='u'+(++nu);acc[e]={uid,p};return uid};
+ return{login:async(e,p)=>{const a=acc[e];if(!a||a.p!==p)throw{code:'auth/invalid-credential'};cu=a.uid;return a.uid},signup:async(e,p)=>{const u=await mk(e,p);cu=u;return u},createUser:mk,logout:async()=>{cu=null},onAuth:()=>{},changePass:async(e,o,n)=>{const a=acc[e];if(!a||a.p!==o)throw{code:'auth/wrong-password'};a.p=n},
+ watch:(p,cb)=>{const l={p,cb};L.add(l);Promise.resolve().then(()=>L.has(l)&&cb(cl(gv(p))));return()=>L.delete(l)},
+  get:async p=>cl(gv(p)),set:async(p,v)=>{sv(p,v);fire(p)},update:async(p,o)=>{for(const k in o)sv(p+'/'+k,o[k]);fire(p)},
+  push:async(p,v)=>{const k='-D'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);sv(p+'/'+k,v);fire(p);return k},
+  remove:async p=>{sv(p,null);fire(p)},counter:async p=>{const n=(gv(p)||0)+1;sv(p,n);fire(p);return n},
+  byChild:async(p,c,v)=>{const o=gv(p)||{},r={};for(const k in o)if(o[k]&&o[k][c]===v)r[k]=o[k];return Object.keys(r).length?cl(r):null}}}
+
+
+/* Render ulang (debounce); panel admin tidak dirender ulang saat admin sedang mengetik di form */
+function refresh(){clearTimeout(rt);rt=setTimeout(()=>{renderPublic();if(admin&&cur&&!$('adminView').classList.contains('hidden')){const a=document.activeElement;if(!(a&&a.closest&&a.closest('#adminView form')))renderAdmin()}},30)}
+function sub(p,fn){subs.push(FBA.watch(R(p),fn,onErr))}
+
+function boot(){if(booted)return;booted=true;FBA=window.FB||makeDemo();demo=!window.FB;FBR=window.FB_ROOT||FBR;
+ if(demo){$('fbBanner').classList.remove('hidden');netState('Mode demo (Firebase belum diisi)','#f59e0b')}
+ else{netState('Menghubungkan...','#f59e0b');FBA.watch('.info/connected',v=>netState(v?'Tersinkron real-time':'Terputus / offline',v?'#10b981':'#dc2626'))}
+ sub('cfg',v=>{db.cfg=Object.assign(defCfg(),v||{});applyCfg();refresh()});
+ sub('stats',v=>{db.stats=Object.assign(seed().stats,v||{});refresh()});
+ sub('apb',v=>{db.apb=Object.assign(seed().apb,v||{});refresh()});
+ sub('officials',v=>{db.officials=arr(v,'urut');refresh()});
+ sub('news',v=>{db.news=arr(v);refresh()});
+ sub('meta/bootstrapped',v=>{bootstrapped=!!v});
+ if(demo)bootDemo().catch(e=>toast('Gagal menyiapkan demo: '+e.message));
+ else FBA.onAuth(async uid=>{if(!uid||cur)return;try{const p=await FBA.get(R('users/'+uid));if(p&&p.aktif!==false){cur=uprof(p,uid);admin=true;$('loginTxt').textContent='Dashboard Admin';attachAuth()}}catch(x){}})}
+window.addEventListener('fb-ready',()=>{if(booted){if(demo&&window.FB)location.reload()}else boot()});
+setTimeout(boot,6000);
+
+/* Isi data awal otomatis jika database masih kosong */
+
+/* ----- Sesi login & listener khusus staf ----- */
+function syncAuth(){
+ if(can('surat')&&!lSub)lSub=FBA.watch(R('letters'),v=>{db.letters=arr(v,'no');refresh()},onErr);
+ if(!can('surat')&&lSub){lSub();lSub=null;db.letters=[]}
+ const ad=cur&&cur.role==='admin';
+ if(ad&&!uSub)uSub=FBA.watch(R('users'),v=>{db.users=arr(v,'urut').map(x=>uprof(x,x.id));refresh()},onErr);
+ if(!ad&&uSub){uSub();uSub=null;db.users=[]}}
+function attachAuth(){detach();selfSub=FBA.watch(R('users/'+cur.id),v=>{if(!cur)return;if(!v||v.aktif===false){logout();toast('Akun Anda dinonaktifkan atau dihapus');return}cur=uprof(v,cur.id);syncAuth();refresh()},onErr);syncAuth()}
+function detach(){[selfSub,lSub,uSub].forEach(f=>f&&f());selfSub=lSub=uSub=null;db.letters=[];db.users=[]}
+function logout(){admin=false;cur=null;detach();if(FBA&&FBA.logout)FBA.logout().catch(()=>{});$('loginTxt').textContent='Login Admin';goPublic();toast('Anda telah keluar.')}
+
+/* ----- Layanan mandiri (publik) ----- */
+async function submitLetter(e){e.preventDefault();
+ if(JM.includes($('l_jenis').value)){jenisChange();toast('Jenis surat ini harus melalui Modin');return false}
+ const nik=$('l_nik').value.trim();if(!/^\d{16}$/.test(nik)){toast('NIK harus 16 digit angka');return false}
+ if($('l_tl').value>new Date().toISOString().slice(0,10)){toast('Tanggal lahir tidak valid');return false}
+ const f=e.target,btn=$('l_btn');
+ const l={nik,nama:$('l_nama').value.trim(),tempat:$('l_tempat').value.trim(),tglLahir:$('l_tl').value,alamat:$('l_alamat').value.trim(),perlu:$('l_perlu').value.trim(),jenis:$('l_jenis').value,wa:$('l_wa').value.trim(),tgl:new Date().toISOString().slice(0,10),ts:Date.now(),status:'Menunggu'};
+ btn.disabled=true;
+ try{await Promise.race([(async()=>{l.no=await FBA.counter(R('meta/letterCounter'));await FBA.push(R('letters'),l)})(),new Promise((_,j)=>setTimeout(()=>j({message:'koneksi lambat atau terputus'}),15000))]);
+  f.reset();
+  openModal(`<div class="p-8 text-center"><i data-lucide="check-circle" class="w-16 h-16 text-emerald-600 mx-auto"></i><h3 class="text-xl font-bold mt-3 text-emerald-800">Permohonan Terkirim</h3><p class="text-gray-600 mt-2">Nomor antrean Anda: <b>#${String(l.no).padStart(4,'0')}</b><br>Petugas akan menghubungi ${esc(l.wa)} melalui WhatsApp.</p><button onclick="closeModal()" class="btn bg-emerald-700 text-white mt-5">Tutup</button></div>`);
+ }catch(x){toast('Gagal mengirim permohonan: '+(x.code||x.message))}
+ btn.disabled=false;return false}
+
+/* ----- CRUD Admin ----- */
+function saveNews(e){e.preventDefault();const d={judul:$('n_judul').value.trim(),kat:$('n_kat').value,tgl:$('n_tgl').value,img:$('n_img').value.trim(),isi:$('n_isi').value.trim()};
+ if(editNews)W(FBA.update(R('news/'+editNews),d),'Berita diperbarui');else W(FBA.push(R('news'),d),'Berita ditambahkan');
+ editNews=null;renderAdmin();return false}
+function delNews(id){if(confirm('Hapus berita ini?')){W(FBA.remove(R('news/'+id)),'Berita dihapus');if(editNews==id)editNews=null;renderAdmin()}}
+function saveOff(e){e.preventDefault();const d={nama:$('o_nama').value.trim(),jabatan:$('o_jab').value.trim(),nip:$('o_nip').value.trim()||'-'};
+ if(editOff)W(FBA.update(R('officials/'+editOff),d),'Data diperbarui');else W(FBA.push(R('officials'),{...d,urut:Math.max(0,...db.officials.map(x=>x.urut||0))+1}),'Perangkat ditambahkan');
+ editOff=null;renderAdmin();return false}
+function delOff(id){if(confirm('Hapus perangkat desa ini?')){W(FBA.remove(R('officials/'+id)),'Data dihapus');if(editOff==id)editOff=null;renderAdmin()}}
+function setStatus(id,s){W(FBA.update(R('letters/'+id),{status:s}),'Status diubah menjadi '+s)}
+function delLet(id){if(confirm('Hapus data pengajuan ini?'))W(FBA.remove(R('letters/'+id)),'Pengajuan dihapus')}
+function saveLet(e,id){e.preventDefault();W(FBA.update(R('letters/'+id),{nik:$('e_nik').value.trim(),nama:$('e_nama').value.trim(),tempat:$('e_tempat').value.trim(),tglLahir:$('e_tl').value,alamat:$('e_alamat').value.trim(),perlu:$('e_perlu').value.trim(),jenis:$('e_jenis').value,wa:$('e_wa').value.trim(),tgl:$('e_tgl').value,status:$('e_st').value}),'Permohonan diperbarui');closeModal();return false}
+function saveCfg(e){e.preventDefault();FLD.forEach(g=>g[1].forEach(f=>db.cfg[f[0]]=$('c_'+f[0]).value));liveColor();W(FBA.set(R('cfg'),clean(db.cfg)),'Pengaturan tampilan disimpan');return false}
+function upImg(inp,key){const lg=key=='logo';readImg(inp.files[0],lg?320:1600,lg?'image/png':'image/jpeg',d=>{db.cfg[key]=d;W(FBA.update(R('cfg'),{[key]:d}),lg?'Logo diganti':'Gambar latar diganti');applyCfg();renderAdmin()})}
+function clearImg(key){db.cfg[key]='';W(FBA.update(R('cfg'),{[key]:''}));applyCfg();renderAdmin()}
+function resetLook(){const d=defCfg(),o={logo:'',heroBg:'',overlay:d.overlay,primary:d.primary,accent:d.accent,pageBg:d.pageBg};Object.assign(db.cfg,o);W(FBA.update(R('cfg'),o),'Tampilan dikembalikan');applyCfg();renderAdmin()}
+
+/* ----- Cetak formulir permohonan (kop desa) ----- */
+function printLet(id){const l=db.letters.find(x=>x.id==id);if(!l)return;const c=db.cfg,w=window.open('','_blank');if(!w){toast('Pop-up diblokir browser, izinkan pop-up untuk mencetak');return}
+ const r=(a,b)=>`<tr><td style="width:170px;padding:4px 0">${a}</td><td>: ${esc(b||'-')}</td></tr>`;
+ w.document.write(`<html><head><title>Permohonan #${esc(l.no)}</title></head><body style="font-family:Arial,sans-serif;padding:40px;max-width:720px;margin:auto"><div style="text-align:center;border-bottom:3px double #000;padding-bottom:10px"><h2 style="margin:0">${esc(c.nama)}</h2><div>${esc(c.sub)}</div><small>${esc(String(c.alamat).replace(/\n/g,', '))}</small></div><h3 style="text-align:center;margin:24px 0 4px">FORMULIR PERMOHONAN ${esc(l.jenis.toUpperCase())}</h3><p style="text-align:center;margin:0 0 20px">Nomor Antrean: #${String(l.no||'').padStart(4,'0')}</p><table style="width:100%">${r('NIK',l.nik)}${r('Nama',l.nama)}${r('Tempat, Tgl Lahir',(l.tempat||'-')+', '+(l.tglLahir?tglID(l.tglLahir):'-'))}${r('Alamat',l.alamat)}${r('No. WhatsApp',l.wa)}${r('Keperluan',l.perlu)}${r('Tanggal Pengajuan',tglID(l.tgl))}${r('Status',l.status)}</table><div style="margin-top:60px;text-align:right">Pemohon,<br><br><br><br>( ${esc(l.nama)} )</div><script>onload=()=>print()<\/script></body></html>`);w.document.close()}
+
+
+/* ===== AUTENTIKASI (Firebase Authentication) & AKSI YANG BERGANTUNG PADA PERAN ===== */
+const authErr=x=>/invalid-credential|wrong-password|user-not-found|invalid-email/.test(x.code||'')?'Username atau password salah.':x.code==='auth/too-many-requests'?'Terlalu banyak percobaan. Coba lagi beberapa menit lagi.':x.code==='auth/operation-not-allowed'?'Aktifkan metode Email/Password di Firebase Authentication.':'Gagal: '+(x.code||x.message);
+function enter(uid,p){cur=uprof(p,uid);admin=true;closeModal();showAdmin();attachAuth();toast('Login berhasil. Selamat datang, '+cur.nama+'.')}
+async function doLogin(e){e.preventDefault();const un=$('lg_u').value.trim().toLowerCase(),pw=$('lg_p').value,er=$('lg_err');er.classList.add('hidden');
+ try{const uid=await FBA.login(un+'@'+AUTHDOM,pw),p=await FBA.get(R('users/'+uid));
+  if(!p||p.aktif===false){if(FBA.logout)await FBA.logout();er.textContent=p?'Akun ini dinonaktifkan.':'Akun belum terdaftar sebagai pengguna desa.';er.classList.remove('hidden')}
+  else enter(uid,p)
+ }catch(x){er.textContent=authErr(x);er.classList.remove('hidden')}
+ return false}
+async function setupAdmin(){const pw=$('lg_p').value,er=$('lg_err');er.classList.add('hidden');
+ if(pw.length<6){er.textContent='Isi kolom Password (min. 6 karakter) untuk akun Admin Utama, lalu klik tautan ini lagi.';er.classList.remove('hidden');return}
+ try{const uid=await FBA.signup('admin@'+AUTHDOM,pw),p={username:'admin',nama:'Administrator Desa',jabatan:'Admin Utama',role:'admin',aktif:true,urut:1};
+  await FBA.set(R('users/'+uid),p);await FBA.set(R('meta/bootstrapped'),true);await seedAll();enter(uid,p);toast('Admin Utama dibuat dan data awal diisi')
+ }catch(x){er.textContent=x.code==='auth/email-already-in-use'?'Akun admin sudah ada. Silakan login.':authErr(x);er.classList.remove('hidden')}}
+async function savePass(e){e.preventDefault();const o=$('cp_old').value,n=$('cp_new').value;
+ try{await FBA.changePass(cur.username+'@'+AUTHDOM,o,n);closeModal();toast('Password diganti')}catch(x){toast(/wrong-password|invalid-credential/.test(x.code||'')?'Password lama salah':authErr(x))}return false}
+
+/* Data awal (konten saja; akun pengguna tidak disentuh) */
+async function seedAll(){const s=seed(),o=(a,p,f)=>Object.fromEntries(a.map((x,i)=>[p+(i+1),clean({...x,id:undefined,...(f?f(x,i):{})})]));
+ await FBA.update(FBR,{cfg:clean(s.cfg),stats:s.stats,apb:s.apb,officials:o(s.officials,'o',(x,i)=>({urut:i+1})),news:o(s.news,'n'),letters:o(s.letters,'l',(x,i)=>({no:i+1,ts:Date.now()+i})),'meta/letterCounter':s.letters.length})}
+async function bootDemo(){await seedAll();for(const[i,u]of seed().users.entries()){const uid=await FBA.createUser(u.username+'@'+AUTHDOM,u.password),{id,password,perms,...r}=u;await FBA.set(R('users/'+uid),clean({...r,perms:pmap(perms||[]),urut:i+1}))}await FBA.set(R('meta/bootstrapped'),true)}
+async function resetData(){if(!confirm('Reset berita, perangkat desa, surat, statistik, APBDes dan tampilan ke contoh awal untuk semua pengunjung? (Akun pengguna tidak diubah)'))return;
+ try{await FBA.update(FBR,{cfg:null,stats:null,apb:null,officials:null,news:null,letters:null,'meta/letterCounter':null});await seedAll();toast('Data direset ke contoh awal')}catch(x){toast('Gagal reset: '+(x.code||x.message))}}
+function saveStat(e){e.preventDefault();const v=id=>+$(id).value||0;
+ W(Promise.all([FBA.set(R('stats'),{penduduk:v('s_p'),kk:v('s_kk'),lk:v('s_lk'),pr:v('s_pr'),dusun:v('s_d'),rw:v('s_rw'),rt:v('s_rt')}),FBA.set(R('apb'),{tahun:v('a_th'),pendTarget:v('a_pt'),pendReal:v('a_pr'),belTarget:v('a_bt'),belReal:v('a_br')})]),'Statistik & APBDes disimpan');return false}
+async function saveUser(e){e.preventDefault();const un=$('u_user').value.trim().toLowerCase(),role=$('u_role').value,aktif=$('u_aktif').checked;
+ if(db.users.some(x=>x.username.toLowerCase()===un&&x.id!=editUser)){toast('Username sudah dipakai');return false}
+ if(role==='operator'&&db.users.filter(x=>x.role==='operator'&&x.id!=editUser).length>=10){toast('Batas maksimal 10 akun operator sudah tercapai');return false}
+ if(editUser&&(role!=='admin'||!aktif)&&admCount(editUser)<1){toast('Harus ada minimal 1 Admin aktif');return false}
+ if(editUser&&cur&&editUser==cur.id&&!aktif){toast('Anda tidak bisa menonaktifkan akun sendiri');return false}
+ const perms=pmap(PERM.map(p=>p[0]).filter(k=>$('u_p_'+k).checked)),d={nama:$('u_nama').value.trim(),jabatan:$('u_jab').value.trim(),role,aktif,perms};
+ try{if(editUser){await FBA.update(R('users/'+editUser),d);toast('Pengguna diperbarui')}
+  else{const uid=await FBA.createUser(un+'@'+AUTHDOM,$('u_pass').value);await FBA.set(R('users/'+uid),{...d,username:un,urut:Math.max(0,...db.users.map(x=>x.urut||0))+1});toast('Pengguna ditambahkan')}
+ }catch(x){toast(x.code==='auth/email-already-in-use'?'Username pernah dipakai (akunnya masih ada di Authentication). Gunakan username lain.':x.code==='auth/weak-password'?'Password minimal 6 karakter':'Gagal menyimpan: '+(x.code||x.message));return false}
+ editUser=null;renderAdmin();return false}
+function delUser(id){if(cur&&id==cur.id){toast('Anda tidak bisa menghapus akun sendiri');return}const u=db.users.find(x=>x.id==id);if(!u)return;if(u.role==='admin'&&admCount(id)<1){toast('Harus ada minimal 1 Admin aktif');return}
+ if(confirm('Hapus pengguna '+u.nama+'?\nAkun login-nya tetap tersimpan di Firebase Authentication (hapus manual di Console bila username ingin dipakai lagi).')){W(FBA.remove(R('users/'+id)),'Pengguna dihapus');if(editUser==id)editUser=null;renderAdmin()}}
+
+/* INIT */
+applyCfg();
+renderPublic();icons();
+</script>
+</body>
+</html>
